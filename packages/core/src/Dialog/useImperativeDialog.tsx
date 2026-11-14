@@ -23,10 +23,7 @@
 import {useState, useCallback, useMemo, type ReactNode} from 'react';
 import {Dialog, type DialogProps} from './Dialog';
 
-type DialogOptions = Omit<
-  DialogProps,
-  'isOpen' | 'onOpenChange' | 'children'
->;
+type DialogOptions = Omit<DialogProps, 'isOpen' | 'onOpenChange' | 'children'>;
 
 export interface ImperativeDialogReturn {
   /** Show the dialog with the given content. */
@@ -56,16 +53,15 @@ export function useImperativeDialog(
 ): ImperativeDialogReturn {
   const [isOpen, setIsOpen] = useState(false);
   const [content, setContent] = useState<ReactNode>(null);
-  const [options, setOptions] = useState<DialogOptions | undefined>(
-    defaultOptions,
-  );
+  // Options from the latest show() call only. Each call replaces them, so
+  // one call's options never leak into the next. The current defaultOptions
+  // apply beneath them on every render.
+  const [options, setOptions] = useState<DialogOptions | undefined>();
 
   const show = useCallback(
     (newContent: ReactNode, newOptions?: DialogOptions) => {
       setContent(newContent);
-      if (newOptions) {
-        setOptions(prev => ({...prev, ...newOptions}));
-      }
+      setOptions(newOptions);
       setIsOpen(true);
     },
     [],

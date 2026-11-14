@@ -270,4 +270,27 @@ describe('loadProjectContext provider identity', () => {
       await selectIntegrationCodemodsFor(integrations, '0.1.0', '0.3.0'),
     ).toEqual([]);
   });
+
+  it('reports an integration whose codemods fail to load instead of dropping it silently', async () => {
+    installWithCodemod('@acme/widgets', '1.0.0');
+    installWithCodemod('@acme/broken', '1.0.0');
+    fs.writeFileSync(
+      path.join(tmpDir, 'node_modules', '@acme', 'broken', 'codemods', '0.2.0', 'rename.mjs'),
+      "throw new Error('codemod module failed to evaluate');\n",
+    );
+    configure(['@acme/widgets', '@acme/broken']);
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({name: 'consumer'}));
+
+    const {integrations} = await loadProjectContext(tmpDir);
+    /** @type {Array<{integration: string, error: string}>} */
+    const skipped = [];
+    const selected = await selectIntegrationCodemodsFor(integrations, '0.1.0', '0.3.0', {
+      skipped,
+    });
+
+    expect(selected.map(entry => entry.version)).toEqual(['0.2.0']);
+    expect(skipped).toEqual([
+      {integration: '@acme/broken', error: expect.stringContaining('codemod module failed to evaluate')},
+    ]);
+  });
 });

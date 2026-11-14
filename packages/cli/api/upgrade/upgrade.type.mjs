@@ -130,6 +130,13 @@
  */
 
 /**
+ * An integration whose codemods could not be loaded, so none of them ran.
+ * @typedef {object} SkippedIntegration
+ * @property {string} integration The integration's package name, or its spec when it has no name.
+ * @property {string} error Why its codemods could not be loaded.
+ */
+
+/**
  * astryx --json upgrade [--apply]
  * @typedef {object} UpgradeRunResponse
  * @property {'upgrade.run'} type
@@ -152,6 +159,7 @@
  * @property {number} [data.transformsApplied] Total codemod changes. A code or config codemod counts once for each file it changed, so one file changed by four of them counts four times; a project codemod counts once, however many files it writes.
  * @property {Array<{file: string, codemod: string, error: string}>} [data.errors] Per-codemod errors, when any codemod failed. On the receipt a failed run's error carries, also a post-codemod hook failure (`codemod: 'post-codemod-hook'`) or the error that stopped the run after codemods wrote files. A returned `ERR_CODEMOD_PROTECTED` result lists them too when a protected file wins over them: a post-codemod hook failure, or an `astryx.config` that fails validation (`{file: '.', codemod: 'config', error}`). Each `file` is relative to the folder the command ran in.
  * @property {CliBehindCore} [data.cliBehindCore] Present only when the installed Core is newer than this CLI: codemods for the releases after `cliBehindCore.cliVersion` did not run.
+ * @property {SkippedIntegration[]} [data.skippedIntegrations] Present only when one or more integrations' codemods could not be loaded. None of a listed integration's codemods ran, so the project may still need its migrations.
  */
 
 /**
@@ -182,9 +190,12 @@
  * Core is newer than this CLI; `no_codemods` then means only that this CLI has
  * no codemods for the range.
  *
+ * `no_codemods` carries `skippedIntegrations` when an integration's codemods
+ * could not be loaded; it then means only that no codemod that loaded applies.
+ *
  * @typedef {object} UpgradeStatusResponse
  * @property {'upgrade.status'} type
- * @property {{status: 'up_to_date', from: string, to: string, agentDocs: AgentDocsSummary, registryCompositions?: RegistryCompositionSummary} | {status: 'no_codemods', from: string, to: string, agentDocs: AgentDocsSummary, registryCompositions?: RegistryCompositionSummary, cliBehindCore?: CliBehindCore} | {status: 'config_fixable', from: string, to: string, configError: string, configCodemods: string[], suggestedCommand: string, message: string, note: string, agentDocs: AgentDocsSummary, cliBehindCore?: CliBehindCore}} data
+ * @property {{status: 'up_to_date', from: string, to: string, agentDocs: AgentDocsSummary, registryCompositions?: RegistryCompositionSummary} | {status: 'no_codemods', from: string, to: string, agentDocs: AgentDocsSummary, registryCompositions?: RegistryCompositionSummary, cliBehindCore?: CliBehindCore, skippedIntegrations?: SkippedIntegration[]} | {status: 'config_fixable', from: string, to: string, configError: string, configCodemods: string[], suggestedCommand: string, message: string, note: string, agentDocs: AgentDocsSummary, cliBehindCore?: CliBehindCore}} data
  */
 
 /**

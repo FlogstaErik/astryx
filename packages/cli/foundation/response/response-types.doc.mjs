@@ -438,12 +438,12 @@ export const doc = {
     {
       value: 'upgrade.status',
       description:
-        'A short-circuit outcome with no codemods run (up_to_date, no_codemods, or config_fixable), each carrying the agent-docs summary. no_codemods and config_fixable carry cliBehindCore ({cliVersion, command}) when the installed Core is newer than the CLI, which then has no codemods for the releases after its own version.',
+        'A short-circuit outcome with no codemods run (up_to_date, no_codemods, or config_fixable), each carrying the agent-docs summary. no_codemods and config_fixable carry cliBehindCore ({cliVersion, command}) when the installed Core is newer than the CLI, which then has no codemods for the releases after its own version. no_codemods carries skippedIntegrations ([{integration, error}]) when an integration\'s codemods could not be loaded.',
     },
     {
       value: 'upgrade.run',
       description:
-        'The run receipt: from/to versions, codemod count, integrations processed, the agent-docs summary, sourcePathFound (false when the resolved source directory does not exist, so no source file was read), and (apply mode) filesChanged, transformsApplied, and per-codemod errors. regenerate lists generated files to rebuild, each with its codemods, commands and messages. When the installed Core is newer than the CLI, it also carries cliBehindCore ({cliVersion, command}): codemods for the releases after cliVersion did not run.',
+        'The run receipt: from/to versions, codemod count, integrations processed, the agent-docs summary, sourcePathFound (false when the resolved source directory does not exist, so no source file was read), and (apply mode) filesChanged, transformsApplied, and per-codemod errors. regenerate lists generated files to rebuild, each with its codemods, commands and messages. When the installed Core is newer than the CLI, it also carries cliBehindCore ({cliVersion, command}): codemods for the releases after cliVersion did not run. When an integration\'s codemods could not be loaded, it carries skippedIntegrations ([{integration, error}]): none of them ran.',
     },
 
     // manifest
