@@ -806,14 +806,22 @@ export async function warnIntegrationIssues(integrations, {iconSets} = {}) {
 
 /**
  * Discover + select the integration codemods that apply in the (from, to]
- * range. An integration whose codemods fail to load is SKIPPED (a definition
- * error is surfaced by the nudge, not a hard failure of the upgrade).
+ * range. An integration whose codemods fail to load is SKIPPED, not a hard
+ * failure of the upgrade. Each skip is pushed onto `skipped` so the caller can
+ * report it: the nudge is silent for --json callers and swallows its own
+ * errors, so it cannot be the only report.
  * @param {Array<import('../../foundation/integrations/integrations.mjs').LoadedIntegration>} integrations
  * @param {string} from
  * @param {string} to
+ * @param {{skipped?: import('./upgrade.type.mjs').SkippedIntegration[]}} [options]
  * @returns {Promise<Array<{version: string, codemods: import('../../authoring/codemod/type').CodemodEntry[]}>>}
  */
-export async function selectIntegrationCodemodsFor(integrations, from, to) {
+export async function selectIntegrationCodemodsFor(
+  integrations,
+  from,
+  to,
+  {skipped} = {},
+) {
   /** @type {Map<string, Array<import('../../authoring/codemod/type').CodemodEntry>>} */
   const integrationCodemodsByVersion = new Map();
   for (const integration of integrations) {
@@ -829,8 +837,13 @@ export async function selectIntegrationCodemodsFor(integrations, from, to) {
         if (existing) existing.push(...list);
         else integrationCodemodsByVersion.set(version, [...list]);
       }
-    } catch {
-      // Skip this integration's codemods (definition error); nudge above surfaces it.
+    } catch (err) {
+      skipped?.push({
+        integration: String(
+          integration.name ?? integration.__spec ?? 'unknown',
+        ),
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return /** @type {Array<{version: string, codemods: import('../../authoring/codemod/type').CodemodEntry[]}>} */ (

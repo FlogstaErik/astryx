@@ -68,16 +68,24 @@ export function logCliBehindCore({cliVersion, command}, to, platform = process.p
  * No core or integration codemods apply to the requested version range. When
  * the CLI is older than the installed Core, that only means this CLI has none:
  * the result carries `cliBehindCore` and the human lines say so.
- * @param {{from: string, to: string, agentDocs: import('../upgrade.type.mjs').AgentDocsSummary, registryCompositions?: import('../upgrade.type.mjs').RegistryCompositionSummary, cliBehindCore?: import('../upgrade.type.mjs').CliBehindCore | null}} data
+ * @param {{from: string, to: string, agentDocs: import('../upgrade.type.mjs').AgentDocsSummary, registryCompositions?: import('../upgrade.type.mjs').RegistryCompositionSummary, cliBehindCore?: import('../upgrade.type.mjs').CliBehindCore | null, skippedIntegrations?: import('../upgrade.type.mjs').SkippedIntegration[]}} data
  * @returns {import('../upgrade.type.mjs').UpgradeStatusResponse}
  */
-export function statusNoCodemods({from, to, agentDocs, registryCompositions, cliBehindCore}) {
+export function statusNoCodemods({
+  from,
+  to,
+  agentDocs,
+  registryCompositions,
+  cliBehindCore,
+  skippedIntegrations,
+}) {
   if (cliBehindCore) logCliBehindCore(cliBehindCore, to);
-  else logger.log('[ok] No codemods available for this version range.');
+  else if (!skippedIntegrations?.length)
+    logger.log('[ok] No codemods available for this version range.');
   logger.log(
     registryCompositions?.ok === false
       ? 'Finished with unresolved registry items\n'
-      : cliBehindCore
+      : cliBehindCore || skippedIntegrations?.length
         ? 'Upgrade incomplete\n'
         : 'Done\n',
   );
@@ -90,6 +98,7 @@ export function statusNoCodemods({from, to, agentDocs, registryCompositions, cli
       agentDocs,
       ...(registryCompositions ? {registryCompositions} : {}),
       ...(cliBehindCore ? {cliBehindCore} : {}),
+      ...(skippedIntegrations?.length ? {skippedIntegrations} : {}),
     },
   };
 }

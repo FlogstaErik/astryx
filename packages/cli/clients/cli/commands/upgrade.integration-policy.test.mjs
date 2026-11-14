@@ -434,6 +434,31 @@ describe('upgrade integration error policy (skip + warn)', () => {
     expect(result).not.toBeNull();
     expect(result.error).toBeUndefined();
     expect(exitCode).not.toBe(1);
+    // The skip is not silent: a --json caller sees which integration's
+    // migrations did not run.
+    expect(result.data.skippedIntegrations).toEqual([
+      {integration: '@acme/widgets', error: expect.any(String)},
+    ]);
+  });
+
+  it('reports no skipped integrations when every integration loads', async () => {
+    scaffoldIntegration({
+      '0.2.0/keep.mjs': `export default { type: 'code', title: 'Keep', transform: (file) => file.source };\n`,
+    });
+    writeInstalledCore('0.2.0');
+    writeSource();
+
+    const result = await runJson([
+      '--json',
+      'upgrade',
+      '--from',
+      '0.1.0',
+      '--path',
+      'src',
+    ]);
+
+    expect(result.error).toBeUndefined();
+    expect(result.data).not.toHaveProperty('skippedIntegrations');
   });
 
   it('runs a healthy integration codemod for an applicable range', async () => {

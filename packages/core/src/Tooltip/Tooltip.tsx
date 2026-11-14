@@ -19,6 +19,7 @@ import React, {
   useRef,
   type ReactElement,
   type ReactNode,
+  type RefCallback,
 } from 'react';
 import {useIsomorphicLayoutEffect} from '../hooks/useIsomorphicLayoutEffect';
 import * as stylex from '@stylexjs/stylex';
@@ -180,6 +181,32 @@ function mergeIds(...ids: (string | undefined | null)[]): string | undefined {
   return filtered.length > 0 ? filtered.join(' ') : undefined;
 }
 
+interface AttachedTrigger {
+  el: HTMLElement;
+  ref: RefCallback<HTMLElement>;
+  id: string;
+}
+
+function addId(el: HTMLElement, id: string): void {
+  const existing = el.getAttribute('aria-describedby');
+  if (!existing?.split(/\s+/).includes(id)) {
+    el.setAttribute('aria-describedby', mergeIds(existing, id) ?? '');
+  }
+}
+
+// Removes only this tooltip's id, so an aria-describedby that React or the
+// caller set after attach survives the detach.
+function removeId(el: HTMLElement, id: string): void {
+  const rest = (el.getAttribute('aria-describedby') ?? '')
+    .split(/\s+/)
+    .filter(token => token !== '' && token !== id);
+  if (rest.length > 0) {
+    el.setAttribute('aria-describedby', rest.join(' '));
+  } else {
+    el.removeAttribute('aria-describedby');
+  }
+}
+
 /**
  * Tooltip component for displaying informative text on hover/focus.
  *
@@ -294,44 +321,78 @@ export function Tooltip({
     };
   }, [anchorRef, tooltip.ref, tooltip.describedBy]);
 
-  // For element children with display:contents, attach ref to first child
+  // Element children: the display:contents wrapper's first element child is
+  // the trigger. A re-render can swap that element or rewrite its
+  // aria-describedby, so the trigger is re-checked after each commit. A child
+  // component can do the same without this component rendering, so a
+  // MutationObserver re-checks on those changes too.
+  const tooltipRef = tooltip.ref;
+  const describedBy = tooltip.describedBy;
+  const attachedRef = useRef<AttachedTrigger | null>(null);
+
+  const detachTrigger = useCallback(() => {
+    const attached = attachedRef.current;
+    if (attached) {
+      attachedRef.current = null;
+      attached.ref(null);
+      removeId(attached.el, attached.id);
+    }
+  }, []);
+
+  const syncTrigger = useCallback(() => {
+    if (anchorRef || textOnly) {
+      return;
+    }
+    const next =
+      (wrapperRef.current?.firstElementChild as HTMLElement | null) ?? null;
+    const attached = attachedRef.current;
+    if (
+      attached &&
+      (attached.el !== next ||
+        attached.ref !== tooltipRef ||
+        attached.id !== describedBy)
+    ) {
+      detachTrigger();
+    }
+    if (!next) {
+      return;
+    }
+    if (!attachedRef.current) {
+      // Use combined ref for position + interaction
+      tooltipRef(next);
+      attachedRef.current = {el: next, ref: tooltipRef, id: describedBy};
+    }
+    addId(next, describedBy);
+  }, [anchorRef, textOnly, tooltipRef, describedBy, detachTrigger]);
+
+  // The cleanup runs before React attaches refs, so a switch to text-only or
+  // anchorRef mode detaches here before the new trigger attaches.
   useIsomorphicLayoutEffect(() => {
-    if (anchorRef) {
+    if (anchorRef || textOnly) {
       return;
-    } // Skip if using anchorRef mode
-    if (textOnly) {
-      return;
-    } // Skip for text-only (ref is on wrapper)
+    }
+    return detachTrigger;
+  }, [anchorRef, textOnly, detachTrigger]);
 
+  // No dependency list: each commit can replace the child or its attributes.
+  useIsomorphicLayoutEffect(() => {
+    syncTrigger();
+  });
+
+  useIsomorphicLayoutEffect(() => {
     const wrapper = wrapperRef.current;
-    if (!wrapper) {
+    if (!wrapper || typeof MutationObserver === 'undefined') {
       return;
     }
-
-    const firstChild = wrapper.firstElementChild as HTMLElement | null;
-    if (!firstChild) {
-      return;
-    }
-
-    // Use combined ref for position + interaction
-    tooltip.ref(firstChild);
-
-    // Set aria-describedby, merging with existing
-    const existingDescribedBy = firstChild.getAttribute('aria-describedby');
-    firstChild.setAttribute(
-      'aria-describedby',
-      mergeIds(existingDescribedBy, tooltip.describedBy) ?? '',
-    );
-
-    return () => {
-      tooltip.ref(null);
-      if (existingDescribedBy) {
-        firstChild.setAttribute('aria-describedby', existingDescribedBy);
-      } else {
-        firstChild.removeAttribute('aria-describedby');
-      }
-    };
-  }, [anchorRef, textOnly, tooltip.ref, tooltip.describedBy]);
+    const observer = new MutationObserver(syncTrigger);
+    observer.observe(wrapper, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-describedby'],
+    });
+    return () => observer.disconnect();
+  }, [syncTrigger]);
 
   // Sibling mode: render only the tooltip (no wrapper needed)
   if (anchorRef && children == null) {

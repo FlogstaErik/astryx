@@ -881,11 +881,19 @@ export async function run(options = {}, {cwd = process.cwd(), origin} = {}) {
   // programmatic/--json callers, i.e. the silent logger).
   await warnIntegrationIssues(integrations, {iconSets});
 
+  /** @type {import('../upgrade.type.mjs').SkippedIntegration[]} */
+  const skippedIntegrations = [];
   const integrationVersionGroups = await selectIntegrationCodemodsFor(
     integrations,
     currentVersion,
     targetVersion,
+    {skipped: skippedIntegrations},
   );
+  for (const {integration, error} of skippedIntegrations) {
+    logger.warn(
+      `[warn] skippedIntegrations: ${integration} - its codemods could not be loaded, so none of them ran (${error})`,
+    );
+  }
   const hasIntegrationCodemods = integrationVersionGroups.some(
     g => g.codemods.length > 0,
   );
@@ -917,6 +925,7 @@ export async function run(options = {}, {cwd = process.cwd(), origin} = {}) {
       agentDocs,
       ...(registryResult ? {registryCompositions: registryResult.summary} : {}),
       cliBehindCore,
+      skippedIntegrations,
     });
   }
 
@@ -1278,6 +1287,9 @@ export async function run(options = {}, {cwd = process.cwd(), origin} = {}) {
   receipt.errors = finalErrors;
   if (registryResult) receipt.registryCompositions = registryResult.summary;
   if (cliBehindCore) receipt.cliBehindCore = cliBehindCore;
+  if (skippedIntegrations.length > 0) {
+    receipt.skippedIntegrations = skippedIntegrations;
+  }
 
   logProtectedFiles(
     `${ERROR_CODES.ERR_CODEMOD_PROTECTED}: ${protectedFiles.length} protected file${protectedFiles.length === 1 ? '' : 's'} still require${protectedFiles.length === 1 ? 's' : ''} a codemod change:`,

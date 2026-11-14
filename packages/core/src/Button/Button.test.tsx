@@ -563,6 +563,20 @@ describe('Button', () => {
       expect(button).not.toHaveAttribute('aria-describedby');
     });
 
+    it('adds no description and no tooltip for an empty tooltip', () => {
+      render(
+        <>
+          <span id="hint">Saves a draft</span>
+          <Button label="Save" tooltip="" aria-describedby="hint" />
+        </>,
+      );
+      const button = screen.getByRole('button', {name: 'Save'});
+      expect(button).toHaveAttribute('aria-describedby', 'hint');
+      expect(button).toHaveAccessibleDescription('Saves a draft');
+      fireEvent.focus(button);
+      expect(screen.queryByRole('tooltip')).toBeNull();
+    });
+
     it('keeps a caller description when the tooltip repeats the name', () => {
       render(
         <>

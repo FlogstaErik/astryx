@@ -912,9 +912,12 @@ export function Button({
   // so no extra DOM node is inserted — the button stays a direct child of its
   // container (no layout shift, and edge-compensation markers remain
   // discoverable through the container's direct-child `:has()` selector).
+  // An empty string renders no tooltip, so it must also attach no trigger and
+  // no aria-describedby; one predicate keeps the three in step.
+  const hasTooltip = tooltip != null && tooltip !== '';
   const tooltipHook = useTooltip({
     placement: 'above',
-    isEnabled: tooltip != null,
+    isEnabled: hasTooltip,
   });
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -1098,14 +1101,14 @@ export function Button({
   // A tooltip that repeats the name adds nothing to the description, so a
   // screen reader does not read the same words twice.
   const isTooltipName =
-    tooltip != null &&
+    hasTooltip &&
     accessibleName != null &&
     tooltip.trim() === accessibleName.trim();
 
   // When a tooltip is attached via the hook, point aria-describedby at the
   // tooltip content (composing with any consumer-provided value).
   const describedByProp =
-    tooltip != null && !isTooltipName
+    hasTooltip && !isTooltipName
       ? {
           'aria-describedby':
             [props['aria-describedby'], tooltipHook.describedBy]
@@ -1119,7 +1122,7 @@ export function Button({
   // the tooltip side when no tooltip is set.
   const mergedButtonRef = useMergedRefs(
     ref,
-    tooltip != null ? tooltipHook.ref : undefined,
+    hasTooltip ? tooltipHook.ref : undefined,
     hitAreaRef,
   );
 
@@ -1178,7 +1181,7 @@ export function Button({
     );
   }
 
-  if (tooltip) {
+  if (hasTooltip) {
     return (
       <>
         {element}

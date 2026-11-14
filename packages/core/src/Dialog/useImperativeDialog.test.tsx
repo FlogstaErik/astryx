@@ -75,4 +75,53 @@ describe('useImperativeDialog', () => {
     expect(screen.getByTestId('status').textContent).toBe('open');
     expect(screen.getByText('Wide content')).toBeInTheDocument();
   });
+
+  it("does not carry one show() call's options into the next call", () => {
+    function SequenceHarness() {
+      const dialog = useImperativeDialog({'aria-label': 'Default label'});
+      return (
+        <div>
+          <button
+            type="button"
+            onClick={() =>
+              dialog.show(<div>First</div>, {'aria-label': 'Custom label'})
+            }>
+            Open custom
+          </button>
+          <button type="button" onClick={() => dialog.show(<div>Second</div>)}>
+            Open plain
+          </button>
+          {dialog.element}
+        </div>
+      );
+    }
+    const {container} = render(<SequenceHarness />);
+    const dialogElement = () => container.querySelector('dialog');
+
+    fireEvent.click(screen.getByText('Open custom'));
+    expect(dialogElement()?.getAttribute('aria-label')).toBe('Custom label');
+
+    fireEvent.click(screen.getByText('Open plain'));
+    expect(dialogElement()?.getAttribute('aria-label')).toBe('Default label');
+  });
+
+  it('applies the current defaultOptions after they change', () => {
+    function DefaultsHarness({label}: {label: string}) {
+      const dialog = useImperativeDialog({'aria-label': label});
+      return (
+        <div>
+          <button type="button" onClick={() => dialog.show(<div>Body</div>)}>
+            Open
+          </button>
+          {dialog.element}
+        </div>
+      );
+    }
+    const {container, rerender} = render(<DefaultsHarness label="Close" />);
+    fireEvent.click(screen.getByText('Open'));
+    rerender(<DefaultsHarness label="Stäng" />);
+    expect(container.querySelector('dialog')?.getAttribute('aria-label')).toBe(
+      'Stäng',
+    );
+  });
 });

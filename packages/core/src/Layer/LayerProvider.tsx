@@ -70,12 +70,14 @@ export function LayerProvider({
   // Nested provider — pass through. One that declares an inset applies it
   // to the anchored layers in its subtree (an app hosted inside another
   // provider can still declare its own bar); the toast viewport is the
-  // root's and reads the root's declaration.
+  // root's and reads the root's declaration. Both branches render the same
+  // element type, so a toggled `inset` keeps the subtree's state.
   if (existingContext) {
-    if (nestedValue == null) {
-      return <>{children}</>;
-    }
-    return <LayerContext value={nestedValue}>{children}</LayerContext>;
+    return (
+      <LayerContext value={nestedValue ?? existingContext}>
+        {children}
+      </LayerContext>
+    );
   }
 
   // The declared inset reaches anchored layers through context. Each layer

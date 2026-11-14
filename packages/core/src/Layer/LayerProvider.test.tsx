@@ -138,6 +138,28 @@ describe('LayerProvider inset (spec:AST-059 FR6)', () => {
     ).toBe('56px');
   });
 
+  it('keeps the subtree state when a nested provider gains or drops its inset', () => {
+    function Host({inset}: {inset?: {blockEnd: number}}) {
+      return (
+        <LayerProvider>
+          <LayerProvider inset={inset}>
+            <input aria-label="Draft" />
+          </LayerProvider>
+        </LayerProvider>
+      );
+    }
+    const {rerender} = render(<Host />);
+    const input = screen.getByLabelText<HTMLInputElement>('Draft');
+    fireEvent.change(input, {target: {value: 'kept'}});
+
+    rerender(<Host inset={{blockEnd: 56}} />);
+    expect(screen.getByLabelText('Draft')).toBe(input);
+    expect(input.value).toBe('kept');
+
+    rerender(<Host />);
+    expect(screen.getByLabelText('Draft')).toBe(input);
+  });
+
   it('lets toast.inset replace the provider value for the toast viewport on the edges it sets', () => {
     const {container} = render(
       <LayerProvider inset={{blockEnd: 56}} toast={{inset: {bottom: 120}}}>

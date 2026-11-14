@@ -26,7 +26,7 @@ import {
   fireEvent,
   waitFor,
 } from '@testing-library/react';
-import {Suspense, startTransition, use, useRef} from 'react';
+import {Suspense, startTransition, use, useRef, useState} from 'react';
 import {Tooltip} from './Tooltip';
 import {ClickableCard} from '../ClickableCard/ClickableCard';
 import {Item} from '../Item/Item';
@@ -981,6 +981,92 @@ describe('Tooltip', () => {
         const onOpenChange = await tapTypeAndReturn(keys);
         expect(onOpenChange).toHaveBeenCalledWith(true);
       });
+    });
+  });
+});
+
+describe('Tooltip element child changes', () => {
+  function describedByIds(el: HTMLElement): string[] {
+    return (el.getAttribute('aria-describedby') ?? '').split(/\s+/);
+  }
+
+  it('follows a child that is replaced, and leaves the old one clean', async () => {
+    const onOpenChange = vi.fn();
+    function Host({isEditing}: {isEditing: boolean}) {
+      return (
+        <Tooltip content="Help" delay={0} onOpenChange={onOpenChange}>
+          {isEditing ? (
+            <button type="button" key="save">
+              Save
+            </button>
+          ) : (
+            <button type="button" key="edit">
+              Edit
+            </button>
+          )}
+        </Tooltip>
+      );
+    }
+    const {rerender} = render(<Host isEditing={false} />);
+    const tooltipId = screen.getByRole('tooltip', {hidden: true}).id;
+    const edit = screen.getByRole('button', {name: 'Edit'});
+    expect(describedByIds(edit)).toContain(tooltipId);
+
+    rerender(<Host isEditing />);
+    const save = screen.getByRole('button', {name: 'Save'});
+    expect(describedByIds(save)).toContain(tooltipId);
+    expect(edit).not.toHaveAttribute('aria-describedby');
+
+    fireEvent.mouseEnter(save);
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it('keeps its description when the child re-renders its own aria-describedby', () => {
+    function Host({hint}: {hint: string}) {
+      return (
+        <>
+          <span id="hint-a">First hint</span>
+          <span id="hint-b">Second hint</span>
+          <Tooltip content="Help">
+            <button type="button" aria-describedby={hint}>
+              Trigger
+            </button>
+          </Tooltip>
+        </>
+      );
+    }
+    const {rerender} = render(<Host hint="hint-a" />);
+    const tooltipId = screen.getByRole('tooltip', {hidden: true}).id;
+    const trigger = screen.getByRole('button', {name: 'Trigger'});
+    expect(describedByIds(trigger)).toEqual(['hint-a', tooltipId]);
+
+    rerender(<Host hint="hint-b" />);
+    expect(describedByIds(trigger)).toEqual(['hint-b', tooltipId]);
+  });
+
+  it('follows a child component that swaps its own element without the tooltip rendering', async () => {
+    let swap: () => void = () => {};
+    function Swapping() {
+      const [isLink, setIsLink] = useState(false);
+      swap = () => setIsLink(true);
+      return isLink ? (
+        <a href="#docs">Docs</a>
+      ) : (
+        <button type="button">Docs</button>
+      );
+    }
+    render(
+      <Tooltip content="Help">
+        <Swapping />
+      </Tooltip>,
+    );
+    const tooltipId = screen.getByRole('tooltip', {hidden: true}).id;
+    act(() => swap());
+    const link = screen.getByRole('link', {name: 'Docs'});
+    await waitFor(() => {
+      expect(describedByIds(link)).toContain(tooltipId);
     });
   });
 });
